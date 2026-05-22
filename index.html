@@ -7,58 +7,59 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #1a1a2e;
-    color: #a0a0b0;
+    background: #0e0e18;
+    color: #d0d0dd;
     font-family: 'Courier New', monospace;
     font-size: 14px;
     padding: 24px;
     min-height: 100vh;
   }
   .terminal { max-width: 640px; margin: 0 auto; }
-  .comment { color: #6272a4; }
+  .comment { color: #8894b8; }
   .keyword { color: #ff79c6; }
   .type { color: #8be9fd; }
   .string { color: #f1fa8c; }
-  h1 { color: #f8f8f2; font-size: 16px; font-weight: normal; margin-bottom: 4px; }
-  .subtitle { color: #6272a4; margin-bottom: 20px; }
+  h1 { color: #f8f8f2; font-size: 18px; font-weight: normal; margin-bottom: 4px; }
+  .subtitle { color: #8894b8; margin-bottom: 20px; font-size: 14px; }
   .section { margin: 16px 0 8px 0; }
-  .section-title { color: #50fa7b; margin-bottom: 6px; }
+  .section-title { color: #90e0a0; margin-bottom: 6px; font-size: 14px; }
+  .help-text { color: #b0b8d0; font-size: 13px; margin-bottom: 8px; line-height: 1.5; }
 
   /* Step 1: Color slots */
   .slot-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
-  .slot-label { color: #bd93f9; width: 24px; }
+  .slot-label { color: #c4a8f0; width: 24px; font-weight: bold; }
   .slot-swatch {
     width: 26px; height: 26px;
-    border: 2px solid #44475a; border-radius: 2px; cursor: pointer;
+    border: 2px solid #3a3a55; border-radius: 2px; cursor: pointer;
   }
-  .slot-swatch:hover { border-color: #a0a0b0; }
-  .slot-name { color: #a0a0b0; font-size: 12px; }
+  .slot-swatch:hover { border-color: #c0c0d0; }
+  .slot-name { color: #b0b8d0; font-size: 13px; }
   .color-picker { display: none; margin: 4px 0 8px 32px; }
   .color-picker.open { display: block; }
   .picker-group { margin: 4px 0; }
-  .picker-group-label { color: #6272a4; font-size: 11px; margin-bottom: 3px; }
+  .picker-group-label { color: #8894b8; font-size: 12px; margin-bottom: 3px; }
   .picker-colors { display: flex; flex-wrap: wrap; gap: 3px; }
   .color-option {
     width: 22px; height: 22px;
-    border: 1px solid #44475a; border-radius: 2px; cursor: pointer;
+    border: 1px solid #3a3a55; border-radius: 2px; cursor: pointer;
     position: relative;
   }
   .color-option:hover { border-color: #f8f8f2; }
   .color-option .tooltip {
     display: none; position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
-    background: #282a36; color: #f8f8f2; padding: 2px 6px; border-radius: 2px;
-    font-size: 11px; white-space: nowrap; z-index: 10; border: 1px solid #44475a;
+    background: #18182a; color: #f8f8f2; padding: 2px 6px; border-radius: 2px;
+    font-size: 11px; white-space: nowrap; z-index: 10; border: 1px solid #3a3a55;
   }
   .color-option:hover .tooltip { display: block; }
 
   /* Step 2: Bit inputs + canvas */
   .step2 { display: none; }
   .step2.visible { display: block; }
-  .grid-container { display: inline-block; border: 1px solid #44475a; margin: 12px 0; line-height: 0; }
+  .grid-container { display: inline-block; border: 1px solid #3a3a55; margin: 12px 0; line-height: 0; }
   .grid-row { display: flex; height: 36px; }
   .pixel {
     width: 36px; height: 36px;
-    border: 1px solid #2a2a3e; cursor: pointer; transition: opacity 0.1s;
+    border: 1px solid #1a1a2a; cursor: pointer; transition: opacity 0.1s;
   }
   .pixel:hover { opacity: 0.7; }
   .draw-palette { display: flex; gap: 12px; margin: 8px 0; flex-wrap: wrap; }
@@ -66,45 +67,43 @@
     display: flex; align-items: center; gap: 6px;
     cursor: pointer; padding: 3px 6px; border-radius: 2px;
   }
-  .draw-slot:hover { background: #2a2a3e; }
-  .draw-slot.selected { background: #44475a; }
+  .draw-slot:hover { background: #1e1e30; }
+  .draw-slot.selected { background: #2e2e45; }
   .draw-swatch { width: 22px; height: 22px; border: 2px solid transparent; border-radius: 2px; }
   .draw-slot.selected .draw-swatch { border-color: #f8f8f2; }
   .bit-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
-  .bit-label { color: #6272a4; width: 65px; }
+  .bit-label { color: #8894b8; width: 65px; }
   .bit-input {
-    background: #0d0d1a; border: 1px solid #44475a; color: #f1fa8c;
+    background: #08080f; border: 1px solid #3a3a55; color: #f1fa8c;
     font-family: 'Courier New', monospace; font-size: 13px;
     padding: 6px 8px; width: 160px; outline: none;
   }
-  .bit-input:focus { border-color: #6272a4; }
+  .bit-input:focus { border-color: #7080b0; }
   .bit-input.error { border-color: #ff5555; }
   .bit-preview { display: flex; margin-left: 4px; }
-  .bit-preview-cell { width: 16px; height: 16px; border: 1px solid #2a2a3e; }
+  .bit-preview-cell { width: 16px; height: 16px; border: 1px solid #1a1a2a; }
 
   button {
-    background: #44475a; color: #f8f8f2; border: 1px solid #6272a4;
+    background: #2e2e45; color: #f0f0f8; border: 1px solid #506080;
     font-family: 'Courier New', monospace; font-size: 13px;
     padding: 6px 14px; cursor: pointer; border-radius: 2px;
     margin-right: 8px; margin-bottom: 6px;
   }
-  button:hover { background: #6272a4; }
+  button:hover { background: #506080; }
   .output {
-    background: #0d0d1a; border: 1px solid #44475a; padding: 12px; margin: 12px 0;
+    background: #08080f; border: 1px solid #3a3a55; padding: 12px; margin: 12px 0;
     font-size: 13px; word-break: break-all; overflow-wrap: break-word; white-space: pre-wrap;
   }
   .link-input {
-    background: #0d0d1a; border: 1px solid #44475a; color: #8be9fd;
+    background: #08080f; border: 1px solid #3a3a55; color: #8be9fd;
     font-family: 'Courier New', monospace; font-size: 12px;
     padding: 8px; width: 100%; margin: 8px 0; outline: none;
   }
-  .link-input:focus { border-color: #6272a4; }
+  .link-input:focus { border-color: #7080b0; }
   .copied { color: #50fa7b; font-size: 12px; display: none; margin-left: 8px; }
-  .legend {
-    display: flex; gap: 12px; margin: 8px 0; flex-wrap: wrap;
-  }
-  .legend-item { display: flex; align-items: center; gap: 4px; font-size: 12px; }
-  .legend-swatch { width: 16px; height: 16px; border: 1px solid #44475a; border-radius: 2px; }
+  .legend { display: flex; gap: 12px; margin: 8px 0; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 4px; font-size: 13px; color: #b0b8d0; }
+  .legend-swatch { width: 16px; height: 16px; border: 1px solid #3a3a55; border-radius: 2px; }
 </style>
 </head>
 <body>
@@ -114,7 +113,8 @@
 
   <!-- Passo 1: Escolher cores -->
   <div class="section">
-    <div class="section-title"><span class="comment">// Passo 1: Escolha 4 cores para os valores 00, 01, 10, 11</span></div>
+    <div class="section-title"><span class="comment">// Passo 1: Escolhe as tuas 4 cores!</span></div>
+    <div class="help-text">Cada desenho usa 4 cores. Clica no quadradinho ao lado de cada numero para trocar a cor.</div>
   </div>
   <div id="color-slots"></div>
   <div style="margin-top: 10px;">
@@ -124,33 +124,36 @@
   <!-- Passo 2: Input bits + canvas -->
   <div class="step2" id="step2">
     <div class="section">
-      <div class="section-title"><span class="comment">// Passo 2: Digite 8 linhas de 16 bits para criar sua arte</span></div>
+      <div class="section-title"><span class="comment">// Passo 2: Desenha com numeros!</span></div>
+      <div class="help-text">
+        Cada linha do desenho tem 16 numeros (so 0 e 1). A cada par de numeros, o computador pinta um pixel com a cor certa. Olha a legenda para saber qual cor cada par faz!
+      </div>
     </div>
 
-    <div class="comment" style="margin-bottom: 6px;">// legenda</div>
+    <div class="comment" style="margin-bottom: 6px;">// legenda de cores</div>
     <div class="legend" id="legend"></div>
 
-    <div class="section"><span class="comment">// binaryStrings</span></div>
+    <div class="section"><span class="comment">// escreve os teus numeros aqui</span></div>
     <div id="bit-inputs"></div>
     <div style="margin-top: 8px;">
       <button onclick="desenhar()">desenhar()</button>
     </div>
 
     <div id="canvas-section" style="display:none">
-      <div class="section"><span class="comment">// pintar com</span></div>
+      <div class="section"><span class="comment">// tambem podes pintar clicando nos quadrados!</span></div>
       <div class="draw-palette" id="draw-palette"></div>
 
-      <div class="section"><span class="comment">// tela</span></div>
+      <div class="section"><span class="comment">// o teu desenho</span></div>
       <div class="grid-container" id="grid"></div>
 
       <div class="section">
         <button onclick="limpar()">limpar()</button>
         <button onclick="compartilhar()">compartilhar()</button>
-        <button onclick="exportarPng()">exportarPng()</button>
+        <button onclick="exportarPng()">guardar()</button>
       </div>
 
       <div id="share-section" style="display:none">
-        <span class="comment">// link para compartilhar</span>
+        <span class="comment">// envia este link para os teus amigos verem!</span>
         <input class="link-input" id="share-link" readonly onclick="this.select()">
         <button onclick="copiar()">copiar()</button>
         <span class="copied" id="copied-msg">copiado!</span>
@@ -349,7 +352,7 @@ function buildDrawPalette() {
     swatch.style.background = ALL_COLORS[slotColors[i]].hex;
 
     const label = document.createElement('span');
-    label.style.color = '#a0a0b0';
+    label.style.color = '#b0b8d0';
     label.textContent = key;
 
     slot.appendChild(swatch);
@@ -513,7 +516,6 @@ function limpar() {
 }
 
 function encodeState() {
-  // Slot colors as 2-char hex each (00-1b for up to 28 colors)
   const colorsHex = slotColors.map(c => c.toString(16).padStart(2, '0')).join('');
   let gridHex = '';
   for (let r = 0; r < GRID_SIZE; r++) {
@@ -525,7 +527,7 @@ function encodeState() {
 }
 
 function decodeState(str) {
-  if (str.length !== 40) return false; // 8 (colors) + 32 (grid)
+  if (str.length !== 40) return false;
   for (let i = 0; i < 4; i++) {
     const idx = parseInt(str.substring(i * 2, i * 2 + 2), 16);
     if (isNaN(idx) || idx >= ALL_COLORS.length) return false;
@@ -542,14 +544,14 @@ function decodeState(str) {
 
 function compartilhar() {
   const data = encodeState();
-  const url = window.location.origin + window.location.pathname + '#' + data;
+  const url = window.location.href.split('#')[0] + '#' + data;
   document.getElementById('share-link').value = url;
   document.getElementById('share-section').style.display = 'block';
   document.getElementById('copied-msg').style.display = 'none';
 
   const renderEl = document.getElementById('render-output');
   const lines = grid.map((row, i) =>
-    `<span style="color:#6272a4">Linha ${i + 1}:</span> ` +
+    `<span style="color:#8894b8">Linha ${i + 1}:</span> ` +
     row.map(v => `<span style="color:${ALL_COLORS[slotColors[v]].hex}">\u2588\u2588</span>`).join('')
   ).join('\n');
   renderEl.innerHTML = lines;
@@ -593,7 +595,6 @@ function loadFromHash() {
 const loaded = loadFromHash();
 buildSlots();
 if (loaded) {
-  // Skip step 1, go straight to canvas
   document.getElementById('step2').classList.add('visible');
   document.getElementById('btn-avancar').style.display = 'none';
   buildLegend();
@@ -611,6 +612,7 @@ window.addEventListener('hashchange', () => {
     buildDrawPalette();
     buildGrid();
     updateBitsFromGrid();
+    document.getElementById('canvas-section').style.display = 'block';
   }
 });
 </script>
