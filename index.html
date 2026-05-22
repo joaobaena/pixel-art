@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel Art Terminal</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a2e;
+    color: #a0a0b0;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .terminal { max-width: 640px; margin: 0 auto; }
+  .comment { color: #6272a4; }
+  .keyword { color: #ff79c6; }
+  .type { color: #8be9fd; }
+  .string { color: #f1fa8c; }
+  h1 { color: #f8f8f2; font-size: 16px; font-weight: normal; margin-bottom: 4px; }
+  .subtitle { color: #6272a4; margin-bottom: 20px; }
+  .section { margin: 16px 0 8px 0; }
+  .section-title { color: #50fa7b; margin-bottom: 6px; }
+
+  /* Step 1: Color slots */
+  .slot-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+  .slot-label { color: #bd93f9; width: 24px; }
+  .slot-swatch {
+    width: 26px; height: 26px;
+    border: 2px solid #44475a; border-radius: 2px; cursor: pointer;
+  }
+  .slot-swatch:hover { border-color: #a0a0b0; }
+  .slot-name { color: #a0a0b0; font-size: 12px; }
+  .color-picker { display: none; margin: 4px 0 8px 32px; }
+  .color-picker.open { display: block; }
+  .picker-group { margin: 4px 0; }
+  .picker-group-label { color: #6272a4; font-size: 11px; margin-bottom: 3px; }
+  .picker-colors { display: flex; flex-wrap: wrap; gap: 3px; }
+  .color-option {
+    width: 22px; height: 22px;
+    border: 1px solid #44475a; border-radius: 2px; cursor: pointer;
+    position: relative;
+  }
+  .color-option:hover { border-color: #f8f8f2; }
+  .color-option .tooltip {
+    display: none; position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
+    background: #282a36; color: #f8f8f2; padding: 2px 6px; border-radius: 2px;
+    font-size: 11px; white-space: nowrap; z-index: 10; border: 1px solid #44475a;
+  }
+  .color-option:hover .tooltip { display: block; }
+
+  /* Step 2: Bit inputs + canvas */
+  .step2 { display: none; }
+  .step2.visible { display: block; }
+  .grid-container { display: inline-block; border: 1px solid #44475a; margin: 12px 0; line-height: 0; }
+  .grid-row { display: flex; height: 36px; }
+  .pixel {
+    width: 36px; height: 36px;
+    border: 1px solid #2a2a3e; cursor: pointer; transition: opacity 0.1s;
+  }
+  .pixel:hover { opacity: 0.7; }
+  .draw-palette { display: flex; gap: 12px; margin: 8px 0; flex-wrap: wrap; }
+  .draw-slot {
+    display: flex; align-items: center; gap: 6px;
+    cursor: pointer; padding: 3px 6px; border-radius: 2px;
+  }
+  .draw-slot:hover { background: #2a2a3e; }
+  .draw-slot.selected { background: #44475a; }
+  .draw-swatch { width: 22px; height: 22px; border: 2px solid transparent; border-radius: 2px; }
+  .draw-slot.selected .draw-swatch { border-color: #f8f8f2; }
+  .bit-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+  .bit-label { color: #6272a4; width: 65px; }
+  .bit-input {
+    background: #0d0d1a; border: 1px solid #44475a; color: #f1fa8c;
+    font-family: 'Courier New', monospace; font-size: 13px;
+    padding: 6px 8px; width: 160px; outline: none;
+  }
+  .bit-input:focus { border-color: #6272a4; }
+  .bit-input.error { border-color: #ff5555; }
+  .bit-preview { display: flex; margin-left: 4px; }
+  .bit-preview-cell { width: 16px; height: 16px; border: 1px solid #2a2a3e; }
+
+  button {
+    background: #44475a; color: #f8f8f2; border: 1px solid #6272a4;
+    font-family: 'Courier New', monospace; font-size: 13px;
+    padding: 6px 14px; cursor: pointer; border-radius: 2px;
+    margin-right: 8px; margin-bottom: 6px;
+  }
+  button:hover { background: #6272a4; }
+  .output {
+    background: #0d0d1a; border: 1px solid #44475a; padding: 12px; margin: 12px 0;
+    font-size: 13px; word-break: break-all; overflow-wrap: break-word; white-space: pre-wrap;
+  }
+  .link-input {
+    background: #0d0d1a; border: 1px solid #44475a; color: #8be9fd;
+    font-family: 'Courier New', monospace; font-size: 12px;
+    padding: 8px; width: 100%; margin: 8px 0; outline: none;
+  }
+  .link-input:focus { border-color: #6272a4; }
+  .copied { color: #50fa7b; font-size: 12px; display: none; margin-left: 8px; }
+  .legend {
+    display: flex; gap: 12px; margin: 8px 0; flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+  .legend-swatch { width: 16px; height: 16px; border: 1px solid #44475a; border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="terminal">
+  <h1><span class="keyword">fun</span> <span class="type">main</span>() {</h1>
+  <div class="subtitle">// Pixel Art 8x8 — Terminal Edition</div>
+
+  <!-- Passo 1: Escolher cores -->
+  <div class="section">
+    <div class="section-title"><span class="comment">// Passo 1: Escolha 4 cores para os valores 00, 01, 10, 11</span></div>
+  </div>
+  <div id="color-slots"></div>
+  <div style="margin-top: 10px;">
+    <button id="btn-avancar" onclick="avancar()">avancar()</button>
+  </div>
+
+  <!-- Passo 2: Input bits + canvas -->
+  <div class="step2" id="step2">
+    <div class="section">
+      <div class="section-title"><span class="comment">// Passo 2: Digite 8 linhas de 16 bits para criar sua arte</span></div>
+    </div>
+
+    <div class="comment" style="margin-bottom: 6px;">// legenda</div>
+    <div class="legend" id="legend"></div>
+
+    <div class="section"><span class="comment">// binaryStrings</span></div>
+    <div id="bit-inputs"></div>
+    <div style="margin-top: 8px;">
+      <button onclick="desenhar()">desenhar()</button>
+    </div>
+
+    <div id="canvas-section" style="display:none">
+      <div class="section"><span class="comment">// pintar com</span></div>
+      <div class="draw-palette" id="draw-palette"></div>
+
+      <div class="section"><span class="comment">// tela</span></div>
+      <div class="grid-container" id="grid"></div>
+
+      <div class="section">
+        <button onclick="limpar()">limpar()</button>
+        <button onclick="compartilhar()">compartilhar()</button>
+        <button onclick="exportarPng()">exportarPng()</button>
+      </div>
+
+      <div id="share-section" style="display:none">
+        <span class="comment">// link para compartilhar</span>
+        <input class="link-input" id="share-link" readonly onclick="this.select()">
+        <button onclick="copiar()">copiar()</button>
+        <span class="copied" id="copied-msg">copiado!</span>
+      </div>
+
+      <div id="render-section" style="display:none">
+        <div class="section"><span class="comment">// resultado</span></div>
+        <div class="output" id="render-output"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="subtitle" style="margin-top: 20px">}</div>
+</div>
+
+<script>
+const GRID_SIZE = 8;
+const BITS_PER_ROW = GRID_SIZE * 2;
+const SLOT_KEYS = ['00', '01', '10', '11'];
+
+// All colors from the original Kotlin script, grouped
+const COLOR_GROUPS = [
+  {
+    label: 'Padrao',
+    colors: [
+      { name: 'preto',    hex: '#1e1e1e' },
+      { name: 'vermelho', hex: '#cc0000' },
+      { name: 'verde',    hex: '#4e9a06' },
+      { name: 'amarelo',  hex: '#c4a000' },
+      { name: 'azul',     hex: '#3465a4' },
+      { name: 'magenta',  hex: '#75507b' },
+      { name: 'ciano',    hex: '#06989a' },
+      { name: 'branco',   hex: '#d3d7cf' },
+    ]
+  },
+  {
+    label: 'Claras',
+    colors: [
+      { name: 'cinza',      hex: '#888a85' },
+      { name: 'rosa',       hex: '#ef2929' },
+      { name: 'lima',       hex: '#8ae234' },
+      { name: 'dourado',    hex: '#fce94f' },
+      { name: 'azul claro', hex: '#729fcf' },
+      { name: 'roxo',       hex: '#ad7fa8' },
+      { name: 'turquesa',   hex: '#34e2e2' },
+      { name: 'prata',      hex: '#eeeeec' },
+    ]
+  },
+  {
+    label: 'Extras',
+    colors: [
+      { name: 'laranja',  hex: '#ff8700' },
+      { name: 'marrom',   hex: '#875f00' },
+      { name: 'salmao',   hex: '#ff875f' },
+      { name: 'violeta',  hex: '#af5fd7' },
+      { name: 'indigo',   hex: '#5f00d7' },
+      { name: 'oliva',    hex: '#afaf00' },
+      { name: 'coral',    hex: '#ff5f5f' },
+      { name: 'bege',     hex: '#ffd7af' },
+      { name: 'lavanda',  hex: '#d7afff' },
+      { name: 'aqua',     hex: '#5fffff' },
+      { name: 'pessego',  hex: '#ffafaf' },
+      { name: 'menta',    hex: '#87ffaf' },
+    ]
+  }
+];
+
+// Flat array for indexing
+const ALL_COLORS = COLOR_GROUPS.flatMap(g => g.colors);
+
+let slotColors = [0, 7, 1, 3]; // preto, branco, vermelho, amarelo
+let selectedSlot = 0;
+let grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(0));
+let painting = false;
+let paintButton = -1;
+let openPicker = -1;
+
+// --- Passo 1: Color Slots ---
+const slotsEl = document.getElementById('color-slots');
+
+function buildSlots() {
+  slotsEl.innerHTML = '';
+  SLOT_KEYS.forEach((key, i) => {
+    const row = document.createElement('div');
+    row.className = 'slot-row';
+
+    const label = document.createElement('span');
+    label.className = 'slot-label';
+    label.textContent = key;
+
+    const swatch = document.createElement('div');
+    swatch.className = 'slot-swatch';
+    swatch.style.background = ALL_COLORS[slotColors[i]].hex;
+    swatch.addEventListener('click', () => {
+      openPicker = openPicker === i ? -1 : i;
+      buildSlots();
+    });
+
+    const name = document.createElement('span');
+    name.className = 'slot-name';
+    name.textContent = ALL_COLORS[slotColors[i]].name;
+
+    row.appendChild(label);
+    row.appendChild(swatch);
+    row.appendChild(name);
+    slotsEl.appendChild(row);
+
+    // Picker dropdown
+    const picker = document.createElement('div');
+    picker.className = 'color-picker' + (openPicker === i ? ' open' : '');
+
+    COLOR_GROUPS.forEach(group => {
+      const gDiv = document.createElement('div');
+      gDiv.className = 'picker-group';
+
+      const gLabel = document.createElement('div');
+      gLabel.className = 'picker-group-label';
+      gLabel.textContent = group.label;
+
+      const gColors = document.createElement('div');
+      gColors.className = 'picker-colors';
+
+      group.colors.forEach(c => {
+        const ci = ALL_COLORS.indexOf(c);
+        const opt = document.createElement('div');
+        opt.className = 'color-option';
+        opt.style.background = c.hex;
+
+        const tooltip = document.createElement('span');
+        tooltip.className = 'tooltip';
+        tooltip.textContent = c.name;
+        opt.appendChild(tooltip);
+
+        opt.addEventListener('click', () => {
+          slotColors[i] = ci;
+          openPicker = -1;
+          buildSlots();
+          if (document.getElementById('step2').classList.contains('visible')) {
+            buildDrawPalette();
+            buildLegend();
+            buildGrid();
+            updateBitPreviews();
+          }
+        });
+        gColors.appendChild(opt);
+      });
+
+      gDiv.appendChild(gLabel);
+      gDiv.appendChild(gColors);
+      picker.appendChild(gDiv);
+    });
+
+    slotsEl.appendChild(picker);
+  });
+}
+
+function avancar() {
+  document.getElementById('step2').classList.add('visible');
+  document.getElementById('btn-avancar').style.display = 'none';
+  buildLegend();
+  buildBitInputs();
+}
+
+// --- Legend ---
+function buildLegend() {
+  const el = document.getElementById('legend');
+  el.innerHTML = '';
+  SLOT_KEYS.forEach((key, i) => {
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+
+    const swatch = document.createElement('div');
+    swatch.className = 'legend-swatch';
+    swatch.style.background = ALL_COLORS[slotColors[i]].hex;
+
+    const label = document.createElement('span');
+    label.textContent = key + ' = ' + ALL_COLORS[slotColors[i]].name;
+
+    item.appendChild(swatch);
+    item.appendChild(label);
+    el.appendChild(item);
+  });
+}
+
+// --- Draw Palette ---
+const drawPaletteEl = document.getElementById('draw-palette');
+
+function buildDrawPalette() {
+  drawPaletteEl.innerHTML = '';
+  SLOT_KEYS.forEach((key, i) => {
+    const slot = document.createElement('div');
+    slot.className = 'draw-slot' + (i === selectedSlot ? ' selected' : '');
+
+    const swatch = document.createElement('div');
+    swatch.className = 'draw-swatch';
+    swatch.style.background = ALL_COLORS[slotColors[i]].hex;
+
+    const label = document.createElement('span');
+    label.style.color = '#a0a0b0';
+    label.textContent = key;
+
+    slot.appendChild(swatch);
+    slot.appendChild(label);
+    slot.addEventListener('click', () => { selectedSlot = i; buildDrawPalette(); });
+    drawPaletteEl.appendChild(slot);
+  });
+}
+
+// --- Grid ---
+const gridEl = document.getElementById('grid');
+
+function buildGrid() {
+  gridEl.innerHTML = '';
+  for (let r = 0; r < GRID_SIZE; r++) {
+    const row = document.createElement('div');
+    row.className = 'grid-row';
+    for (let c = 0; c < GRID_SIZE; c++) {
+      const px = document.createElement('div');
+      px.className = 'pixel';
+      px.style.background = ALL_COLORS[slotColors[grid[r][c]]].hex;
+      px.dataset.r = r;
+      px.dataset.c = c;
+      px.addEventListener('mousedown', onMouseDown);
+      px.addEventListener('mouseenter', onMouseEnter);
+      px.addEventListener('contextmenu', e => e.preventDefault());
+      px.addEventListener('touchstart', onTouchStart, { passive: false });
+      px.addEventListener('touchmove', onTouchMove, { passive: false });
+      row.appendChild(px);
+    }
+    gridEl.appendChild(row);
+  }
+}
+
+function paintPixel(r, c, slotIdx) {
+  grid[r][c] = slotIdx;
+  const px = gridEl.children[r].children[c];
+  px.style.background = ALL_COLORS[slotColors[slotIdx]].hex;
+}
+
+function onMouseDown(e) {
+  e.preventDefault(); painting = true; paintButton = e.button;
+  const r = +e.target.dataset.r, c = +e.target.dataset.c;
+  paintPixel(r, c, e.button === 2 ? 0 : selectedSlot);
+  updateBitsFromGrid();
+}
+function onMouseEnter(e) {
+  if (!painting) return;
+  const r = +e.target.dataset.r, c = +e.target.dataset.c;
+  paintPixel(r, c, paintButton === 2 ? 0 : selectedSlot);
+  updateBitsFromGrid();
+}
+document.addEventListener('mouseup', () => { painting = false; });
+
+function onTouchStart(e) {
+  e.preventDefault(); painting = true;
+  const el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+  if (el && el.dataset.r !== undefined) { paintPixel(+el.dataset.r, +el.dataset.c, selectedSlot); updateBitsFromGrid(); }
+}
+function onTouchMove(e) {
+  e.preventDefault(); if (!painting) return;
+  const el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+  if (el && el.dataset.r !== undefined) { paintPixel(+el.dataset.r, +el.dataset.c, selectedSlot); updateBitsFromGrid(); }
+}
+document.addEventListener('touchend', () => { painting = false; });
+
+// --- Binary Inputs ---
+const bitInputsEl = document.getElementById('bit-inputs');
+const bitInputs = [];
+
+function buildBitInputs() {
+  bitInputsEl.innerHTML = '';
+  bitInputs.length = 0;
+  for (let r = 0; r < GRID_SIZE; r++) {
+    const row = document.createElement('div');
+    row.className = 'bit-row';
+
+    const label = document.createElement('span');
+    label.className = 'bit-label';
+    label.textContent = `Linha ${r + 1}:`;
+
+    const input = document.createElement('input');
+    input.className = 'bit-input';
+    input.type = 'text';
+    input.maxLength = BITS_PER_ROW;
+    input.placeholder = '0'.repeat(BITS_PER_ROW);
+    input.value = gridRowToBits(r);
+    input.addEventListener('input', () => {
+      input.value = input.value.replace(/[^01]/g, '');
+      updateBitPreview(r);
+    });
+    bitInputs.push(input);
+
+    const preview = document.createElement('div');
+    preview.className = 'bit-preview';
+    preview.id = 'bit-preview-' + r;
+
+    row.appendChild(label);
+    row.appendChild(input);
+    row.appendChild(preview);
+    bitInputsEl.appendChild(row);
+    updateBitPreview(r);
+  }
+}
+
+function gridRowToBits(r) { return grid[r].map(v => SLOT_KEYS[v]).join(''); }
+
+function updateBitsFromGrid() {
+  for (let r = 0; r < GRID_SIZE; r++) {
+    if (bitInputs[r]) { bitInputs[r].value = gridRowToBits(r); updateBitPreview(r); }
+  }
+}
+
+function updateBitPreview(r) {
+  const preview = document.getElementById('bit-preview-' + r);
+  if (!preview) return;
+  preview.innerHTML = '';
+  const val = (bitInputs[r] ? bitInputs[r].value : '').padEnd(BITS_PER_ROW, '0');
+  for (let c = 0; c < BITS_PER_ROW; c += 2) {
+    const bits = val.substring(c, c + 2);
+    const slotIdx = SLOT_KEYS.indexOf(bits);
+    const cell = document.createElement('div');
+    cell.className = 'bit-preview-cell';
+    cell.style.background = slotIdx >= 0 ? ALL_COLORS[slotColors[slotIdx]].hex : '#ff5555';
+    preview.appendChild(cell);
+  }
+}
+
+function updateBitPreviews() { for (let r = 0; r < GRID_SIZE; r++) updateBitPreview(r); }
+
+function desenhar() {
+  let valid = true;
+  for (let r = 0; r < GRID_SIZE; r++) {
+    const val = bitInputs[r].value;
+    if (val.length !== BITS_PER_ROW || /[^01]/.test(val)) {
+      bitInputs[r].classList.add('error'); valid = false;
+    } else {
+      bitInputs[r].classList.remove('error');
+    }
+  }
+  if (!valid) return;
+  for (let r = 0; r < GRID_SIZE; r++) {
+    const val = bitInputs[r].value;
+    for (let c = 0; c < GRID_SIZE; c++) {
+      grid[r][c] = SLOT_KEYS.indexOf(val.substring(c * 2, c * 2 + 2));
+    }
+  }
+  buildDrawPalette();
+  buildGrid();
+  document.getElementById('canvas-section').style.display = 'block';
+}
+
+// --- Actions ---
+function limpar() {
+  grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(0));
+  buildGrid();
+  updateBitsFromGrid();
+  document.getElementById('canvas-section').style.display = 'none';
+  document.getElementById('share-section').style.display = 'none';
+  document.getElementById('render-section').style.display = 'none';
+}
+
+function encodeState() {
+  // Slot colors as 2-char hex each (00-1b for up to 28 colors)
+  const colorsHex = slotColors.map(c => c.toString(16).padStart(2, '0')).join('');
+  let gridHex = '';
+  for (let r = 0; r < GRID_SIZE; r++) {
+    let rowBits = 0;
+    for (let c = 0; c < GRID_SIZE; c++) { rowBits = (rowBits << 2) | grid[r][c]; }
+    gridHex += rowBits.toString(16).padStart(4, '0');
+  }
+  return colorsHex + gridHex;
+}
+
+function decodeState(str) {
+  if (str.length !== 40) return false; // 8 (colors) + 32 (grid)
+  for (let i = 0; i < 4; i++) {
+    const idx = parseInt(str.substring(i * 2, i * 2 + 2), 16);
+    if (isNaN(idx) || idx >= ALL_COLORS.length) return false;
+    slotColors[i] = idx;
+  }
+  for (let r = 0; r < GRID_SIZE; r++) {
+    const rowHex = str.substring(8 + r * 4, 8 + (r + 1) * 4);
+    let rowBits = parseInt(rowHex, 16);
+    if (isNaN(rowBits)) return false;
+    for (let c = GRID_SIZE - 1; c >= 0; c--) { grid[r][c] = rowBits & 3; rowBits >>= 2; }
+  }
+  return true;
+}
+
+function compartilhar() {
+  const data = encodeState();
+  const url = window.location.origin + window.location.pathname + '#' + data;
+  document.getElementById('share-link').value = url;
+  document.getElementById('share-section').style.display = 'block';
+  document.getElementById('copied-msg').style.display = 'none';
+
+  const renderEl = document.getElementById('render-output');
+  const lines = grid.map((row, i) =>
+    `<span style="color:#6272a4">Linha ${i + 1}:</span> ` +
+    row.map(v => `<span style="color:${ALL_COLORS[slotColors[v]].hex}">\u2588\u2588</span>`).join('')
+  ).join('\n');
+  renderEl.innerHTML = lines;
+  document.getElementById('render-section').style.display = 'block';
+  history.replaceState(null, '', '#' + data);
+}
+
+function copiar() {
+  const input = document.getElementById('share-link');
+  input.select();
+  navigator.clipboard.writeText(input.value);
+  const msg = document.getElementById('copied-msg');
+  msg.style.display = 'inline';
+  setTimeout(() => { msg.style.display = 'none'; }, 2000);
+}
+
+function exportarPng() {
+  const scale = 40;
+  const canvas = document.createElement('canvas');
+  canvas.width = GRID_SIZE * scale; canvas.height = GRID_SIZE * scale;
+  const ctx = canvas.getContext('2d');
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      ctx.fillStyle = ALL_COLORS[slotColors[grid[r][c]]].hex;
+      ctx.fillRect(c * scale, r * scale, scale, scale);
+    }
+  }
+  const a = document.createElement('a');
+  a.download = 'pixel-art.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+}
+
+// --- Load from URL hash ---
+function loadFromHash() {
+  const hash = window.location.hash.slice(1);
+  if (hash && hash.length === 40) return decodeState(hash);
+  return false;
+}
+
+const loaded = loadFromHash();
+buildSlots();
+if (loaded) {
+  // Skip step 1, go straight to canvas
+  document.getElementById('step2').classList.add('visible');
+  document.getElementById('btn-avancar').style.display = 'none';
+  buildLegend();
+  buildDrawPalette();
+  buildGrid();
+  buildBitInputs();
+  document.getElementById('canvas-section').style.display = 'block';
+}
+window.addEventListener('hashchange', () => {
+  if (loadFromHash()) {
+    buildSlots();
+    document.getElementById('step2').classList.add('visible');
+    document.getElementById('btn-avancar').style.display = 'none';
+    buildLegend();
+    buildDrawPalette();
+    buildGrid();
+    updateBitsFromGrid();
+  }
+});
+</script>
+</body>
+</html>
